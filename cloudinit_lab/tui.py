@@ -4,8 +4,21 @@ import sys
 import termios
 import tty
 
+from cloudinit_lab import __build_date__, __version__
 from cloudinit_lab.scenarios import load_scenario, merge_overrides
 from cloudinit_lab.vmctl import create_vm, destroy_vm, list_images, list_vms, resolve_image
+
+
+class C:
+    RST = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+    RED = "\033[91m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    CYAN = "\033[96m"
+    WHITE = "\033[97m"
+    BG_BLUE = "\033[44m"
 
 
 def _read_key() -> str:
@@ -30,23 +43,39 @@ def _read_key() -> str:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
 
-def menu(items: list[tuple[str, str | None]], title: str = "") -> str | None:
+def menu(items: list[tuple], title: str = "") -> str | None:
     """
-    Arrow-key menu. Items are (label, value) pairs; value=None marks a
-    non-selectable section header. Returns the selected value, or None if
-    the user quits.
+    Arrow-key menu. Items are (label, value) or (label, value, kind) tuples;
+    value=None marks a non-selectable section header. kind="danger" renders
+    the label in red when not selected (default kind="item"). Returns the
+    selected value, or None if the user quits.
     """
-    selectable_indices = [i for i, (_, v) in enumerate(items) if v is not None]
+    selectable_indices = [i for i, item in enumerate(items) if item[1] is not None]
     if not selectable_indices:
         return None
     cursor = selectable_indices[0]
 
     while True:
+        sys.stdout.write("\033[2J\033[H")
+        print(f"\n  {C.BOLD}{C.CYAN}cloudinit-lab{C.RST}  "
+              f"{C.DIM}RHEL · Fedora · Debian · Ubuntu cloud-init lab{C.RST}")
+        print(f"  {C.DIM}version {__version__} ({__build_date__}) by manumaiden{C.RST}")
+        print(f"  {C.DIM}{'─' * 50}{C.RST}\n")
         if title:
-            print(title)
-        for i, (label, value) in enumerate(items):
-            marker = "> " if i == cursor else "  "
-            print(f"{marker}{label}")
+            print(f"  {C.BOLD}{title}{C.RST}\n")
+        for i, item in enumerate(items):
+            label, value = item[0], item[1]
+            kind = item[2] if len(item) > 2 else "item"
+            if value is None:
+                print(f"\n  {C.DIM}{C.BOLD}{label}{C.RST}")
+            elif i == cursor:
+                print(f"  {C.BG_BLUE}{C.WHITE}{C.BOLD}  {label:<32}  {C.RST}")
+            elif kind == "danger":
+                print(f"    {C.RED}{label}{C.RST}")
+            else:
+                print(f"    {label}")
+        print(f"\n  {C.DIM}↑↓ navigate   Enter select   q quit{C.RST}")
+        sys.stdout.flush()
 
         key = _read_key()
         if key == "QUIT":
@@ -67,13 +96,13 @@ def interactive_main(cfg: dict) -> int:
         choice = menu([
             ("-- Provisioning --", None),
             ("Create VM", "create"),
-            ("Destroy VM", "destroy"),
+            ("Destroy VM", "destroy", "danger"),
             ("-- Info --", None),
             ("List VMs", "list"),
             ("List images", "images"),
             ("List scenarios", "scenarios"),
             ("Quit", "quit"),
-        ], title="cloudinit-lab")
+        ], title="Main menu")
 
         if choice in (None, "quit"):
             return 0

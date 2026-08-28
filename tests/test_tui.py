@@ -29,6 +29,30 @@ def test_menu_quit_returns_none(monkeypatch):
     assert result is None
 
 
+def test_menu_clears_screen_before_each_redraw(monkeypatch, capsys):
+    # Regression guard: menu() must repaint in place, never stack redraws
+    # below each other (the bug reported when running the TUI for real).
+    keys = iter(["DOWN", "ENTER"])
+    monkeypatch.setattr(tui, "_read_key", lambda: next(keys))
+    tui.menu([("A", "a"), ("B", "b")])
+    out = capsys.readouterr().out
+    assert out.count("\033[2J\033[H") == 2  # one redraw per loop iteration
+
+
+def test_menu_renders_danger_item_in_red_when_not_selected(monkeypatch, capsys):
+    monkeypatch.setattr(tui, "_read_key", lambda: "ENTER")
+    tui.menu([("Safe", "safe"), ("Dangerous", "dangerous", "danger")])
+    out = capsys.readouterr().out
+    assert f"{tui.C.RED}Dangerous{tui.C.RST}" in out
+
+
+def test_menu_legacy_two_tuples_still_work(monkeypatch):
+    # Backward compatibility: plain (label, value) tuples default to kind="item".
+    monkeypatch.setattr(tui, "_read_key", lambda: "ENTER")
+    result = tui.menu([("A", "a"), ("B", "b")])
+    assert result == "a"
+
+
 def test_interactive_create_uses_merge_overrides_not_direct_mutation(monkeypatch, tmp_path):
     # Regression guard: the create flow must go through merge_overrides()
     # (which re-validates) rather than mutating the loaded Scenario in
