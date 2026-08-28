@@ -1,0 +1,14 @@
+# Static addressing scenario — network-config applies this natively, no
+# runcmd workaround needed.
+hostname: cinit-static
+user: manu
+password: Test1234!
+nics:
+  - name: enp1s0
+    mode: static
+    # Deliberately high in the /24 to sit outside the default libvirt
+    # network's DHCP pool (typically .2-.254 on 192.168.122.0/24) — see the
+    # "Static addressing caveat" section in README.md.
+    address: 192.168.122.200/24
+    gateway: 192.168.122.1
+    dns: ["8.8.8.8", "1.1.1.1"]
