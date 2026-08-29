@@ -32,6 +32,40 @@ cloud-init preinstalled) — no curated version table, `virt-install
 - `pyyaml` (`pip install -r requirements.txt`)
 - Cloud qcow2 images downloaded from the distro's official cloud image portal
 
+## Cloud images
+
+Images live under `IMAGES_DIR/<os>/<version>*.qcow2`. `IMAGES_DIR` defaults to
+`images/` next to the repo, but is almost always overridden in
+`~/.cloudinit-lab.conf` (see `configs/lab.conf`) — check that file first if
+`cloudinit-lab images` reports nothing found. `<os>` is not a fixed list: it's
+whatever string you pass to `--os`, so the subfolder name must match it
+exactly (e.g. `--os fedora` looks in `IMAGES_DIR/fedora/`). `<version>*.qcow2`
+means the filename just has to start with the string passed to `--version`.
+
+```
+IMAGES_DIR/
+├── fedora/
+│   └── 40-Cloud-Base.qcow2       # cloudinit-lab create --os fedora --version 40
+├── debian/
+│   └── 12-generic-amd64.qcow2    # --os debian --version 12
+└── ubuntu/
+    └── 24.04-server-cloudimg-amd64.qcow2   # --os ubuntu --version 24.04
+```
+
+Official download portals:
+
+- Fedora Cloud: https://fedoraproject.org/cloud/download
+- Debian: https://cloud.debian.org/images/cloud/
+- Ubuntu: https://cloud-images.ubuntu.com/
+
+Ubuntu ships its image as `.img` (qcow2 format under a different extension)
+— rename it to `.qcow2` after downloading, since `resolve_image` only globs
+for `*.qcow2`:
+
+```bash
+mv ubuntu-24.04-server-cloudimg-amd64.img 24.04-server-cloudimg-amd64.qcow2
+```
+
 ## Installation
 
 ```bash
@@ -55,7 +89,7 @@ Arrow keys to navigate, `Enter` to select, `q` to quit.
 ### Direct CLI
 
 ```bash
-# Place cloud images under images/<os>/<version>*.qcow2, or pass --src explicitly
+# Image lookup: see "Cloud images" above. Or skip it and pass --src explicitly
 cloudinit-lab create --os rhel --version 10.2 --scenario dhcp-dns-override --hostname test1
 
 cloudinit-lab list

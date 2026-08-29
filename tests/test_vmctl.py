@@ -80,6 +80,11 @@ def test_build_virt_install_args_single_nic():
     assert args.count("--network") == 1
     assert "/vms/test-vm.qcow2,device=disk,bus=virtio,format=qcow2" in args
     assert "/vms/seed.iso,device=cdrom" in args
+    # Regression guard: without --noautoconsole, virt-install attaches to
+    # the guest's serial console and blocks forever once its stdout is
+    # piped (as create_vm's run(..., capture=True) does), instead of
+    # returning control once the domain is defined and started.
+    assert "--noautoconsole" in args
 
 
 def test_build_virt_install_args_multi_nic():

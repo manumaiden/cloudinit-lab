@@ -70,6 +70,7 @@ def build_virt_install_args(
         "--os-variant", "detect=on,require=off",
         "--graphics", "none",
         "--import",
+        "--noautoconsole",
     ]
     for _ in nics:
         args += ["--network", "network=default,model=virtio"]

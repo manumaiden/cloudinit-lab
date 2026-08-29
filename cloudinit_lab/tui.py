@@ -91,6 +91,13 @@ def menu(items: list[tuple], title: str = "") -> str | None:
             cursor = selectable_indices[pos]
 
 
+def _pause() -> None:
+    # menu() clears the screen on its next redraw, so give the user a
+    # chance to actually read whatever was just printed before it's wiped.
+    if sys.stdin.isatty():
+        input(f"\n  {C.DIM}Press Enter to continue...{C.RST}")
+
+
 def interactive_main(cfg: dict) -> int:
     while True:
         choice = menu([
@@ -125,27 +132,42 @@ def interactive_main(cfg: dict) -> int:
             result = create_vm(scenario.hostname, image, scenario, cfg["VMS_DIR"],
                                 ram=cfg["DEFAULT_RAM"], vcpus=cfg["DEFAULT_VCPUS"])
             print(f"Created {result['name']} (IP {result['mgmt_ip']})")
+            _pause()
 
         elif choice == "destroy":
-            name = input("VM name to destroy: ").strip()
-            if name:
-                if sys.stdin.isatty():
-                    answer = input(
-                        f"Destroy VM '{name}'? This removes its disk permanently. [y/N] "
-                    ).strip().lower()
-                    if answer not in ("y", "yes"):
-                        continue
-                destroy_vm(name, cfg["VMS_DIR"])
-                print(f"Destroyed {name}")
+            vms = list_vms()
+            if not vms:
+                print("No VMs found.")
+                _pause()
+                continue
+            name = menu(
+                [(f"{vm['name']:20} {vm['state']:12} {vm['mgmt_ip'] or '-'}", vm["name"], "danger")
+                 for vm in vms],
+                title="Select VM to destroy",
+            )
+            if name is None:
+                continue
+            if sys.stdin.isatty():
+                answer = input(
+                    f"Destroy VM '{name}'? This removes its disk permanently. [y/N] "
+                ).strip().lower()
+                if answer not in ("y", "yes"):
+                    continue
+            destroy_vm(name, cfg["VMS_DIR"])
+            print(f"Destroyed {name}")
+            _pause()
 
         elif choice == "list":
             for vm in list_vms():
                 print(f"{vm['name']:20} {vm['state']:12} {vm['mgmt_ip'] or '-'}")
+            _pause()
 
         elif choice == "images":
             for img in list_images(cfg["IMAGES_DIR"]):
                 print(f"{img['os']:12} {img['path']} ({img['size_bytes']} bytes)")
+            _pause()
 
         elif choice == "scenarios":
             for p in sorted(cfg["SCENARIOS_DIR"].glob("*.yaml")):
                 print(p.stem)
+            _pause()

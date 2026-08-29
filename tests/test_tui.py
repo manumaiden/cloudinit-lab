@@ -99,11 +99,14 @@ def test_interactive_create_uses_merge_overrides_not_direct_mutation(monkeypatch
 
 
 def test_interactive_destroy_prompts_and_aborts_on_no(monkeypatch):
-    menu_returns = iter(["destroy", "quit"])
+    # Regression guard: destroy must offer a selectable list of existing
+    # VMs (labvirt-style), not a free-typed name.
+    menu_returns = iter(["destroy", "test-vm", "quit"])
     monkeypatch.setattr(tui, "menu", lambda *a, **kw: next(menu_returns))
     monkeypatch.setattr(tui.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(tui, "list_vms", lambda: [{"name": "test-vm", "state": "running", "mgmt_ip": "1.2.3.4"}])
 
-    inputs = iter(["test-vm", "n"])
+    inputs = iter(["n"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
 
     destroy_calls = []
@@ -115,11 +118,12 @@ def test_interactive_destroy_prompts_and_aborts_on_no(monkeypatch):
 
 
 def test_interactive_destroy_proceeds_on_yes(monkeypatch):
-    menu_returns = iter(["destroy", "quit"])
+    menu_returns = iter(["destroy", "test-vm", "quit"])
     monkeypatch.setattr(tui, "menu", lambda *a, **kw: next(menu_returns))
     monkeypatch.setattr(tui.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(tui, "list_vms", lambda: [{"name": "test-vm", "state": "running", "mgmt_ip": "1.2.3.4"}])
 
-    inputs = iter(["test-vm", "y"])
+    inputs = iter(["y", ""])  # trailing "" answers the post-action pause
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
 
     destroy_calls = []
@@ -131,12 +135,15 @@ def test_interactive_destroy_proceeds_on_yes(monkeypatch):
 
 
 def test_interactive_destroy_skips_prompt_when_not_a_tty(monkeypatch):
-    menu_returns = iter(["destroy", "quit"])
+    menu_returns = iter(["destroy", "test-vm", "quit"])
     monkeypatch.setattr(tui, "menu", lambda *a, **kw: next(menu_returns))
     monkeypatch.setattr(tui.sys.stdin, "isatty", lambda: False)
+    monkeypatch.setattr(tui, "list_vms", lambda: [{"name": "test-vm", "state": "running", "mgmt_ip": "1.2.3.4"}])
 
-    inputs = iter(["test-vm"])
-    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+    def fail_input(prompt=""):
+        raise AssertionError("input() should not be called when stdin isn't a tty")
+
+    monkeypatch.setattr("builtins.input", fail_input)
 
     destroy_calls = []
     monkeypatch.setattr(tui, "destroy_vm", lambda name, vms_dir: destroy_calls.append((name, vms_dir)))
@@ -144,3 +151,72 @@ def test_interactive_destroy_skips_prompt_when_not_a_tty(monkeypatch):
     rc = tui.interactive_main({"VMS_DIR": "/tmp/vms", "SCENARIOS_DIR": "/tmp"})
     assert rc == 0
     assert destroy_calls == [("test-vm", "/tmp/vms")]
+
+
+def test_interactive_destroy_selection_cancelled_does_nothing(monkeypatch):
+    # Quitting the VM-selection submenu (None) must return to the main menu
+    # without prompting for confirmation or destroying anything.
+    menu_returns = iter(["destroy", None, "quit"])
+    monkeypatch.setattr(tui, "menu", lambda *a, **kw: next(menu_returns))
+    monkeypatch.setattr(tui, "list_vms", lambda: [{"name": "test-vm", "state": "running", "mgmt_ip": "1.2.3.4"}])
+
+    def fail_input(prompt=""):
+        raise AssertionError("input() should not be called when selection is cancelled")
+
+    monkeypatch.setattr("builtins.input", fail_input)
+
+    destroy_calls = []
+    monkeypatch.setattr(tui, "destroy_vm", lambda name, vms_dir: destroy_calls.append((name, vms_dir)))
+
+    rc = tui.interactive_main({"VMS_DIR": "/tmp/vms", "SCENARIOS_DIR": "/tmp"})
+    assert rc == 0
+    assert destroy_calls == []
+
+
+def test_interactive_destroy_no_vms_found(monkeypatch, capsys):
+    menu_returns = iter(["destroy", "quit"])
+    monkeypatch.setattr(tui, "menu", lambda *a, **kw: next(menu_returns))
+    monkeypatch.setattr(tui.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(tui, "list_vms", lambda: [])
+
+    inputs = iter([""])  # the pause prompt
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    rc = tui.interactive_main({"VMS_DIR": "/tmp/vms", "SCENARIOS_DIR": "/tmp"})
+    assert rc == 0
+    assert "No VMs found." in capsys.readouterr().out
+
+
+def test_interactive_images_pauses_before_next_redraw_clears_it(monkeypatch, tmp_path, capsys):
+    # Regression guard: menu() clears the screen on every redraw, so listing
+    # output (images/VMs/scenarios) must wait for the user to press Enter
+    # before looping back into it, or the result is wiped before it's read.
+    menu_returns = iter(["images", "quit"])
+    monkeypatch.setattr(tui, "menu", lambda *a, **kw: next(menu_returns))
+    monkeypatch.setattr(tui.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(tui, "list_images", lambda images_dir: [
+        {"os": "fedora", "path": tmp_path / "f.qcow2", "size_bytes": 123},
+    ])
+
+    inputs = iter([""])  # the pause prompt
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    rc = tui.interactive_main({"IMAGES_DIR": tmp_path})
+
+    assert rc == 0
+    assert "fedora" in capsys.readouterr().out
+
+
+def test_interactive_images_skips_pause_when_not_a_tty(monkeypatch, tmp_path):
+    menu_returns = iter(["images", "quit"])
+    monkeypatch.setattr(tui, "menu", lambda *a, **kw: next(menu_returns))
+    monkeypatch.setattr(tui.sys.stdin, "isatty", lambda: False)
+    monkeypatch.setattr(tui, "list_images", lambda images_dir: [])
+
+    def fail_input(prompt=""):
+        raise AssertionError("input() should not be called when stdin isn't a tty")
+
+    monkeypatch.setattr("builtins.input", fail_input)
+
+    rc = tui.interactive_main({"IMAGES_DIR": tmp_path})
+    assert rc == 0
