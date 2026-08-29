@@ -18,6 +18,13 @@ troubleshooting** — not a general-purpose provisioner, and not a replacement
 for [labvirt](https://github.com/manumaiden/labvirt) (which covers
 bonding/teaming lab topologies from raw installer images instead).
 
+## Menu preview
+
+Arrow-key navigation, scenario/image pick-lists with inline descriptions,
+and default credentials shown right in the SSH prompt:
+
+![cloudinit-lab main menu](docs/screenshots/menu-demo.gif)
+
 ## Supported OS
 
 Any RHEL, Fedora, Debian, or Ubuntu **cloud** image (already ships with
