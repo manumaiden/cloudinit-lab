@@ -103,10 +103,12 @@ def _wait_for_ssh_port(ip: str, timeout: int = 90) -> bool:
     return False
 
 
-def _offer_ssh(ip: str, user: str) -> None:
+def _offer_ssh(ip: str, user: str, password: str) -> None:
     if not sys.stdin.isatty():
         return
-    answer = input("Connect via SSH now? [Y/n] ").strip().lower()
+    answer = input(
+        f"Connect via SSH now? (user: {user}, password: {password}) [Y/n] "
+    ).strip().lower()
     if answer not in ("", "y", "yes"):
         return
     if not _wait_for_ssh_port(ip):
@@ -149,7 +151,7 @@ def create_vm(
         mgmt_ip = scenario.nics[0].address.split("/")[0]
 
     if mgmt_ip:
-        _offer_ssh(mgmt_ip, scenario.user)
+        _offer_ssh(mgmt_ip, scenario.user, scenario.password)
 
     return {"name": name, "instance_id": instance_id, "mgmt_ip": mgmt_ip}
 

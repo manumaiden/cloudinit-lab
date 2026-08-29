@@ -38,7 +38,7 @@ def test_render_user_data_dhcp_with_overrides_includes_runcmd():
     assert body["users"][0]["name"] == "manu"
     assert body["chpasswd"]["list"] == "manu:Test1234!\n"
     assert "runcmd" in body
-    assert body["runcmd"][0] == 'nmcli con mod "cloud-init eth0" ipv4.dns "8.8.8.8"'
+    assert 'nmcli con mod "cloud-init eth0" ipv4.dns "8.8.8.8"' in body["runcmd"]
 
 
 def test_render_user_data_plain_dhcp_has_no_runcmd():

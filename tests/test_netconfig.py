@@ -72,6 +72,8 @@ def test_dhcp_nic_with_dns_override_generates_nmcli_lines():
     )]
     lines = render_dns_workaround_runcmd(nics)
     assert lines == [
+        'nmcli con mod "cloud-init enp1s0" connection.interface-name ""',
+        'nmcli con mod "cloud-init enp1s0" match.interface-name "en*"',
         'nmcli con mod "cloud-init enp1s0" ipv4.ignore-auto-dns yes',
         'nmcli con mod "cloud-init enp1s0" ipv4.dns "8.8.8.8 1.1.1.1"',
         'nmcli con mod "cloud-init enp1s0" ipv4.dns-search "tst.example.com"',
@@ -100,8 +102,26 @@ def test_multiple_dhcp_nics_generate_independent_blocks():
     ]
     lines = render_dns_workaround_runcmd(nics)
     assert lines == [
+        'nmcli con mod "cloud-init eth0" connection.interface-name ""',
+        'nmcli con mod "cloud-init eth0" match.interface-name "en*"',
         'nmcli con mod "cloud-init eth0" ipv4.dns "8.8.8.8"',
         'nmcli con up "cloud-init eth0"',
+        'nmcli con mod "cloud-init eth1" connection.interface-name ""',
+        'nmcli con mod "cloud-init eth1" match.interface-name "en*"',
         'nmcli con mod "cloud-init eth1" ipv4.dns "1.1.1.1"',
         'nmcli con up "cloud-init eth1"',
     ]
+
+
+def test_dhcp_nic_with_dns_override_clears_literal_interface_binding():
+    # Regression guard: cloud-init's NM renderer hardcodes
+    # connection.interface-name to the netplan id regardless of what the
+    # guest's kernel actually names the device (verified live: a scenario
+    # named "enp1s0" produced a profile that failed to activate on a real
+    # device named "ens2"). The workaround must clear that literal binding
+    # and rebind via NM's own match.interface-name glob before activating.
+    nics = [NicConfig(name="enp1s0", mode="dhcp", dns=["8.8.8.8"])]
+    lines = render_dns_workaround_runcmd(nics)
+    assert lines[0] == 'nmcli con mod "cloud-init enp1s0" connection.interface-name ""'
+    assert lines[1] == 'nmcli con mod "cloud-init enp1s0" match.interface-name "en*"'
+    assert lines[-1] == 'nmcli con up "cloud-init enp1s0"'

@@ -6,7 +6,7 @@ import tty
 
 from cloudinit_lab import __build_date__, __version__
 from cloudinit_lab.scenarios import load_scenario, merge_overrides
-from cloudinit_lab.vmctl import create_vm, destroy_vm, list_images, list_vms, resolve_image
+from cloudinit_lab.vmctl import create_vm, destroy_vm, list_images, list_vms
 
 
 class C:
@@ -121,14 +121,25 @@ def interactive_main(cfg: dict) -> int:
             )
             if scenario_choice is None:
                 continue
-            os_name = input("OS (e.g. rhel): ").strip()
-            version = input("Version (e.g. 10.2): ").strip()
+
+            images = list_images(cfg["IMAGES_DIR"])
+            if not images:
+                print("No images found.")
+                _pause()
+                continue
+            image = menu(
+                [(f"{img['os']:12} {img['path']} ({img['size_bytes']} bytes)", img["path"])
+                 for img in images],
+                title="Select an image",
+            )
+            if image is None:
+                continue
+
             hostname = input("Hostname override (blank = use scenario default): ").strip() or None
 
             scenario = load_scenario(cfg["SCENARIOS_DIR"] / f"{scenario_choice}.yaml")
             overrides = {"hostname": hostname} if hostname else {}
             scenario = merge_overrides(scenario, overrides)
-            image = resolve_image(cfg["IMAGES_DIR"], os_name, version)
             result = create_vm(scenario.hostname, image, scenario, cfg["VMS_DIR"],
                                 ram=cfg["DEFAULT_RAM"], vcpus=cfg["DEFAULT_VCPUS"])
             print(f"Created {result['name']} (IP {result['mgmt_ip']})")

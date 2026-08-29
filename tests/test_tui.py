@@ -70,7 +70,10 @@ def test_interactive_create_uses_merge_overrides_not_direct_mutation(monkeypatch
         return replace(scenario, hostname=overrides.get("hostname", scenario.hostname))
 
     monkeypatch.setattr(tui, "merge_overrides", fake_merge_overrides)
-    monkeypatch.setattr(tui, "resolve_image", lambda images_dir, os_name, version: tmp_path / "img.qcow2")
+    image_path = tmp_path / "img.qcow2"
+    monkeypatch.setattr(tui, "list_images", lambda images_dir: [
+        {"os": "rhel", "path": image_path, "size_bytes": 123},
+    ])
 
     create_calls = []
 
@@ -80,10 +83,10 @@ def test_interactive_create_uses_merge_overrides_not_direct_mutation(monkeypatch
 
     monkeypatch.setattr(tui, "create_vm", fake_create_vm)
 
-    menu_returns = iter(["create", "demo", "quit"])
+    menu_returns = iter(["create", "demo", image_path, "quit"])
     monkeypatch.setattr(tui, "menu", lambda *a, **kw: next(menu_returns))
 
-    inputs = iter(["rhel", "10.2", "new-host"])
+    inputs = iter(["new-host"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
 
     cfg = {
@@ -96,6 +99,51 @@ def test_interactive_create_uses_merge_overrides_not_direct_mutation(monkeypatch
     assert merge_calls == [(original_scenario, {"hostname": "new-host"})]
     assert original_scenario.hostname == "orig-host"
     assert create_calls == [("new-host", "new-host")]
+
+
+def test_interactive_create_no_images_found(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(tui, "list_images", lambda images_dir: [])
+
+    menu_returns = iter(["create", "demo", "quit"])
+    monkeypatch.setattr(tui, "menu", lambda *a, **kw: next(menu_returns))
+
+    inputs = iter([""])  # the pause prompt
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    cfg = {
+        "SCENARIOS_DIR": tmp_path, "IMAGES_DIR": tmp_path, "VMS_DIR": tmp_path,
+        "DEFAULT_RAM": 2048, "DEFAULT_VCPUS": 2,
+    }
+    rc = tui.interactive_main(cfg)
+
+    assert rc == 0
+    assert "No images found." in capsys.readouterr().out
+
+
+def test_interactive_create_image_selection_cancelled_does_nothing(monkeypatch, tmp_path):
+    monkeypatch.setattr(tui, "list_images", lambda images_dir: [
+        {"os": "rhel", "path": tmp_path / "img.qcow2", "size_bytes": 123},
+    ])
+
+    menu_returns = iter(["create", "demo", None, "quit"])
+    monkeypatch.setattr(tui, "menu", lambda *a, **kw: next(menu_returns))
+
+    def fail_input(prompt=""):
+        raise AssertionError("input() should not be called when image selection is cancelled")
+
+    monkeypatch.setattr("builtins.input", fail_input)
+
+    create_calls = []
+    monkeypatch.setattr(tui, "create_vm", lambda *a, **kw: create_calls.append(1))
+
+    cfg = {
+        "SCENARIOS_DIR": tmp_path, "IMAGES_DIR": tmp_path, "VMS_DIR": tmp_path,
+        "DEFAULT_RAM": 2048, "DEFAULT_VCPUS": 2,
+    }
+    rc = tui.interactive_main(cfg)
+
+    assert rc == 0
+    assert create_calls == []
 
 
 def test_interactive_destroy_prompts_and_aborts_on_no(monkeypatch):

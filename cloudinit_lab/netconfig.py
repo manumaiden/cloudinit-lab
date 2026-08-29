@@ -55,6 +55,17 @@ def render_dns_workaround_runcmd(nics: list[NicConfig]) -> list[str]:
     harmless when the target renderer would have applied the values anyway.
     Static NICs never need this: network-config applies their nameservers
     natively.
+
+    Also rebinds the connection's device match before activating it. Verified
+    live against a real guest: cloud-init's NetworkManager renderer hardcodes
+    `connection.interface-name` to the NIC's netplan id (nic.name) regardless
+    of what the guest's kernel actually names the device — a scenario named
+    "enp1s0" produced a profile with interface-name=enp1s0 that failed to
+    activate ("mismatching interface name") on a guest whose real device was
+    ens2, silently defeating the whole workaround. Clearing that literal
+    binding and rebinding through NetworkManager's own `match.interface-name`
+    glob (which NM does honor, unlike cloud-init's ignored netplan `match:`
+    stanza) works regardless of predictable naming.
     """
     lines = []
     for nic in nics:
@@ -63,6 +74,8 @@ def render_dns_workaround_runcmd(nics: list[NicConfig]) -> list[str]:
         if not (nic.dns or nic.dns_search or nic.ignore_auto_dns or nic.dhcp_hostname):
             continue
         con_name = f"cloud-init {nic.name}"
+        lines.append(f'nmcli con mod "{con_name}" connection.interface-name ""')
+        lines.append(f'nmcli con mod "{con_name}" match.interface-name "en*"')
         if nic.ignore_auto_dns:
             lines.append(f'nmcli con mod "{con_name}" ipv4.ignore-auto-dns yes')
         if nic.dns:
