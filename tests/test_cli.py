@@ -23,7 +23,7 @@ def test_create_command_required_args():
 def test_create_command_with_overrides():
     parser = build_parser()
     args = parser.parse_args([
-        "create", "--os", "fedora", "--version", "40", "--scenario", "dhcp-dns-override",
+        "create", "--os", "fedora", "--version", "40", "--scenario", "default",
         "--hostname", "test2", "--dns", "1.1.1.1", "9.9.9.9",
     ])
     assert args.hostname == "test2"
@@ -56,6 +56,23 @@ def test_images_command():
     parser = build_parser()
     args = parser.parse_args(["images"])
     assert args.command == "images"
+
+
+def test_cmd_scenarios_prints_name_and_description(tmp_path, capsys):
+    (tmp_path / "a-scenario.yaml").write_text("""
+description: A short description of this scenario
+hostname: h
+user: manu
+password: Test1234!
+nics:
+  - name: eth0
+    mode: dhcp
+""")
+    rc = cli_main._cmd_scenarios(None, {"SCENARIOS_DIR": tmp_path})
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "a-scenario" in out
+    assert "A short description of this scenario" in out
 
 
 def test_main_reports_missing_tools_and_returns_1(monkeypatch, capsys):

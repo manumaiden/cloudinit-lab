@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-from cloudinit_lab.netconfig import render_dns_workaround_runcmd, render_network_config
+from cloudinit_lab.netconfig import is_vanilla_dhcp, render_dns_workaround_runcmd, render_network_config
 from cloudinit_lab.scenarios import Scenario
 
 
@@ -37,21 +37,31 @@ def render_user_data(scenario: Scenario) -> str:
 
 
 def write_seed_files(workdir: Path, scenario: Scenario) -> str:
-    """Render meta-data/user-data/network-config into workdir. Returns instance_id."""
+    """
+    Render meta-data/user-data/network-config into workdir. Returns
+    instance_id. Skips network-config entirely when every NIC is plain DHCP
+    with no customization: an explicit network-config that misnames the
+    interface (predictable naming isn't guaranteed across OS/kernel
+    combinations) leaves the NIC completely unconfigured on renderers with
+    no auto-connect fallback (systemd-networkd, unlike NetworkManager) —
+    whereas omitting it lets cloud-init generate its own fallback config
+    from the interface it actually finds on the running guest.
+    """
     workdir.mkdir(parents=True, exist_ok=True)
     meta_data, instance_id = render_meta_data(scenario.hostname)
     (workdir / "meta-data").write_text(meta_data)
     (workdir / "user-data").write_text(render_user_data(scenario))
-    (workdir / "network-config").write_text(render_network_config(scenario.nics))
+    if not all(is_vanilla_dhcp(nic) for nic in scenario.nics):
+        (workdir / "network-config").write_text(render_network_config(scenario.nics))
     return instance_id
 
 
 def build_seed_iso(workdir: Path, output_path: Path) -> None:
-    """Package the three seed files in workdir into a NoCloud seed.iso."""
+    """Package the seed files present in workdir into a NoCloud seed.iso."""
+    files = ["user-data", "meta-data"]
+    if (workdir / "network-config").exists():
+        files.append("network-config")
     subprocess.run(
-        [
-            "genisoimage", "-output", str(output_path), "-volid", "cidata",
-            "-joliet", "-rock", "user-data", "meta-data", "network-config",
-        ],
+        ["genisoimage", "-output", str(output_path), "-volid", "cidata", "-joliet", "-rock"] + files,
         cwd=workdir, check=True, capture_output=True,
     )

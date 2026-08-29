@@ -115,9 +115,10 @@ def interactive_main(cfg: dict) -> int:
             return 0
 
         if choice == "create":
-            scenario_names = [p.stem for p in sorted(cfg["SCENARIOS_DIR"].glob("*.yaml"))]
+            scenario_paths = sorted(cfg["SCENARIOS_DIR"].glob("*.yaml"))
             scenario_choice = menu(
-                [(name, name) for name in scenario_names], title="Select a scenario"
+                [(f"{p.stem:20} {load_scenario(p).description}", p.stem) for p in scenario_paths],
+                title="Select a scenario",
             )
             if scenario_choice is None:
                 continue
@@ -180,5 +181,6 @@ def interactive_main(cfg: dict) -> int:
 
         elif choice == "scenarios":
             for p in sorted(cfg["SCENARIOS_DIR"].glob("*.yaml")):
-                print(p.stem)
+                scenario = load_scenario(p)
+                print(f"{p.stem:20} {scenario.description}")
             _pause()

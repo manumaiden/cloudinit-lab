@@ -268,3 +268,27 @@ def test_interactive_images_skips_pause_when_not_a_tty(monkeypatch, tmp_path):
 
     rc = tui.interactive_main({"IMAGES_DIR": tmp_path})
     assert rc == 0
+
+
+def test_interactive_scenarios_prints_name_and_description(monkeypatch, tmp_path, capsys):
+    (tmp_path / "a-scenario.yaml").write_text("""
+description: A short description of this scenario
+hostname: h
+user: manu
+password: Test1234!
+nics:
+  - name: eth0
+    mode: dhcp
+""")
+    menu_returns = iter(["scenarios", "quit"])
+    monkeypatch.setattr(tui, "menu", lambda *a, **kw: next(menu_returns))
+
+    inputs = iter([""])  # the pause prompt
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    rc = tui.interactive_main({"SCENARIOS_DIR": tmp_path})
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "a-scenario" in out
+    assert "A short description of this scenario" in out

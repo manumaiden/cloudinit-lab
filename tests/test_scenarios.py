@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from cloudinit_lab.netconfig import NicConfig
@@ -31,6 +33,31 @@ nics:
     assert scenario.user == "manu"
     assert scenario.password == "test-pass"
     assert scenario.nics == [NicConfig(name="eth0", mode="dhcp", dns=["8.8.8.8"])]
+
+
+def test_load_scenario_reads_description(tmp_path):
+    path = _write(tmp_path, """
+description: A short description of this scenario
+hostname: test1
+user: manu
+password: test-pass
+nics:
+  - name: eth0
+    mode: dhcp
+""")
+    assert load_scenario(path).description == "A short description of this scenario"
+
+
+def test_load_scenario_description_defaults_to_empty_string(tmp_path):
+    path = _write(tmp_path, """
+hostname: test1
+user: manu
+password: test-pass
+nics:
+  - name: eth0
+    mode: dhcp
+""")
+    assert load_scenario(path).description == ""
 
 
 def test_load_valid_static_scenario(tmp_path):
@@ -137,6 +164,12 @@ def test_merge_overrides_does_not_mutate_original():
     original = _base_scenario()
     merge_overrides(original, {"dns": ["1.1.1.1"]})
     assert original.nics[0].dns == ["8.8.8.8"]
+
+
+def test_merge_overrides_preserves_description():
+    original = replace(_base_scenario(), description="some description")
+    merged = merge_overrides(original, {"hostname": "new-host"})
+    assert merged.description == "some description"
 
 
 def test_merge_overrides_empty_dict_returns_equivalent_scenario():

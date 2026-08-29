@@ -90,7 +90,7 @@ Arrow keys to navigate, `Enter` to select, `q` to quit.
 
 ```bash
 # Image lookup: see "Cloud images" above. Or skip it and pass --src explicitly
-cloudinit-lab create --os rhel --version 10.2 --scenario dhcp-dns-override --hostname test1
+cloudinit-lab create --os rhel --version 10.2 --scenario default --hostname test1
 
 cloudinit-lab list
 cloudinit-lab images
@@ -102,7 +102,7 @@ cloudinit-lab destroy test1
 
 A scenario is a YAML file describing hostname, user, password, and one or
 more NICs (`mode: dhcp` or `mode: static`, with DNS/route overrides). See
-`scenarios/` for the five bundled examples — `default` (single NIC, plain
+`scenarios/` for the three bundled examples — `default` (single NIC, plain
 DHCP, no overrides) sorts first and is the one preselected when picking a
 scenario interactively. CLI flags (`--hostname`, `--dns`, ...) override
 individual fields at run time without editing the profile.

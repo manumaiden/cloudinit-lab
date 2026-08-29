@@ -18,6 +18,13 @@ class NicConfig:
     dhcp_hostname: str | None = None
 
 
+def is_vanilla_dhcp(nic: NicConfig) -> bool:
+    """True for a NIC that needs no customization beyond plain DHCP."""
+    return nic.mode == "dhcp" and not (
+        nic.dns or nic.dns_search or nic.ignore_auto_dns or nic.dhcp_hostname
+    )
+
+
 def render_network_config(nics: list[NicConfig]) -> str:
     """Render a netplan v2 network-config YAML document for the given NICs."""
     ethernets = {}

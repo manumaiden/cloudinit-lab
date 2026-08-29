@@ -1,5 +1,6 @@
 # Static addressing scenario — network-config applies this natively, no
 # runcmd workaround needed.
+description: One NIC, static IP with DNS (no DHCP)
 hostname: cinit-static
 user: manu
 password: Test1234!

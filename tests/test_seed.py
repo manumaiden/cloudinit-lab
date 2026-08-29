@@ -50,10 +50,10 @@ def test_render_user_data_plain_dhcp_has_no_runcmd():
     assert "runcmd" not in body
 
 
-def test_write_seed_files_creates_three_files(tmp_path):
+def test_write_seed_files_creates_three_files_when_network_config_needed(tmp_path):
     scenario = Scenario(
         hostname="h", user="manu", password="Test1234!",
-        nics=[NicConfig(name="eth0", mode="dhcp")],
+        nics=[NicConfig(name="eth0", mode="dhcp", dns=["8.8.8.8"])],
     )
     workdir = tmp_path / "seed-work"
     instance_id = write_seed_files(workdir, scenario)
@@ -61,6 +61,37 @@ def test_write_seed_files_creates_three_files(tmp_path):
     assert (workdir / "user-data").is_file()
     assert (workdir / "network-config").is_file()
     uuid.UUID(instance_id)
+
+
+def test_write_seed_files_skips_network_config_for_vanilla_dhcp(tmp_path):
+    # Regression guard: an explicit network-config naming an interface that
+    # doesn't match the guest's real device leaves it completely
+    # unconfigured on renderers with no auto-connect fallback (verified
+    # live: systemd-networkd on Debian never got a DHCP lease). Omitting
+    # network-config for a NIC that needs no customization lets cloud-init
+    # generate its own fallback config from the real discovered interface.
+    scenario = Scenario(
+        hostname="h", user="manu", password="Test1234!",
+        nics=[NicConfig(name="eth0", mode="dhcp")],
+    )
+    workdir = tmp_path / "seed-work"
+    write_seed_files(workdir, scenario)
+    assert (workdir / "meta-data").is_file()
+    assert (workdir / "user-data").is_file()
+    assert not (workdir / "network-config").exists()
+
+
+def test_write_seed_files_writes_network_config_if_any_nic_is_not_vanilla(tmp_path):
+    scenario = Scenario(
+        hostname="h", user="manu", password="Test1234!",
+        nics=[
+            NicConfig(name="eth0", mode="dhcp"),
+            NicConfig(name="eth1", mode="static", address="10.10.10.100/24", gateway="10.10.10.1"),
+        ],
+    )
+    workdir = tmp_path / "seed-work"
+    write_seed_files(workdir, scenario)
+    assert (workdir / "network-config").is_file()
 
 
 @pytest.mark.skipif(shutil.which("genisoimage") is None, reason="genisoimage not installed")

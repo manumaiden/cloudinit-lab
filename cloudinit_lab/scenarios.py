@@ -17,6 +17,7 @@ class Scenario:
     user: str
     password: str
     nics: list[NicConfig] = field(default_factory=list)
+    description: str = ""
 
 
 class ScenarioValidationError(ValueError):
@@ -32,6 +33,7 @@ def load_scenario(path: Path) -> Scenario:
         user=data["user"],
         password=data["password"],
         nics=nics,
+        description=data.get("description", ""),
     )
     validate_scenario(scenario)
     return scenario
@@ -77,6 +79,7 @@ def merge_overrides(scenario: Scenario, overrides: dict) -> Scenario:
         user=overrides.get("user", scenario.user),
         password=overrides.get("password", scenario.password),
         nics=nics,
+        description=scenario.description,
     )
     validate_scenario(merged)
     return merged

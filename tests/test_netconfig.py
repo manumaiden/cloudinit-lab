@@ -1,7 +1,26 @@
 import pytest
 import yaml
 
-from cloudinit_lab.netconfig import NicConfig, render_network_config
+from cloudinit_lab.netconfig import NicConfig, is_vanilla_dhcp, render_network_config
+
+
+def test_is_vanilla_dhcp_true_for_plain_dhcp_nic():
+    assert is_vanilla_dhcp(NicConfig(name="eth0", mode="dhcp")) is True
+
+
+def test_is_vanilla_dhcp_false_for_static_nic():
+    assert is_vanilla_dhcp(NicConfig(name="eth0", mode="static", address="10.0.0.5/24")) is False
+
+
+@pytest.mark.parametrize("field, value", [
+    ("dns", ["8.8.8.8"]),
+    ("dns_search", ["example.com"]),
+    ("ignore_auto_dns", True),
+    ("dhcp_hostname", "custom-name"),
+])
+def test_is_vanilla_dhcp_false_when_any_override_field_set(field, value):
+    nic = NicConfig(name="eth0", mode="dhcp", **{field: value})
+    assert is_vanilla_dhcp(nic) is False
 
 
 def test_single_dhcp_nic():

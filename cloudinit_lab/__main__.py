@@ -83,7 +83,8 @@ def _cmd_images(args, cfg) -> int:
 
 def _cmd_scenarios(args, cfg) -> int:
     for path in sorted(cfg["SCENARIOS_DIR"].glob("*.yaml")):
-        print(path.stem)
+        scenario = load_scenario(path)
+        print(f"{path.stem:20} {scenario.description}")
     return 0
 
 

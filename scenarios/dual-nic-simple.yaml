@@ -1,6 +1,7 @@
 # Two NICs, both plain — no DNS/hostname overrides on either, so no
 # runcmd workaround is generated. Main NIC is DHCP; second is static,
 # unrelated to the default libvirt network's DHCP pool.
+description: Two NICs, plain — main DHCP, second static 10.10.10.100/24
 hostname: cinit-dual-nic
 user: manu
 password: Test1234!
