@@ -1,0 +1,9 @@
+# Simplest possible scenario: one NIC, plain DHCP, no DNS/hostname
+# overrides — no runcmd workaround is generated for this one. Named to
+# sort first and be the default pick when browsing scenarios/.
+hostname: cinit-dhcp
+user: manu
+password: Test1234!
+nics:
+  - name: enp1s0
+    mode: dhcp

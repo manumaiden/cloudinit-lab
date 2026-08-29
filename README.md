@@ -102,9 +102,10 @@ cloudinit-lab destroy test1
 
 A scenario is a YAML file describing hostname, user, password, and one or
 more NICs (`mode: dhcp` or `mode: static`, with DNS/route overrides). See
-`scenarios/` for the three bundled examples. CLI flags (`--hostname`,
-`--dns`, ...) override individual fields at run time without editing the
-profile.
+`scenarios/` for the five bundled examples — `default` (single NIC, plain
+DHCP, no overrides) sorts first and is the one preselected when picking a
+scenario interactively. CLI flags (`--hostname`, `--dns`, ...) override
+individual fields at run time without editing the profile.
 
 ## What gets applied
 
